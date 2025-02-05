@@ -3,42 +3,78 @@ import numpy as np
 import pandas as pd
 import pickle
 import requests
-from io import BytesIO
+import os
+from sklearn.ensemble import RandomForestClassifier
 
-# Function to download the model file from a URL
-def download_model(url):
-    response = requests.get(url)
+# Function to download the file from Google Drive
+def download_file_from_google_drive(file_id, destination):
+    # Construct the direct download URL
+    url = f"https://drive.google.com/uc?id={file_id}&export=download"
+    
+    session = requests.Session()
+    response = session.get(url, stream=True)
+    
+    # Check if the request is successful (status code 200)
     if response.status_code == 200:
-        return BytesIO(response.content)  # Return content as a BytesIO object
+        with open(destination, 'wb') as f:
+            for chunk in response.iter_content(1024):
+                f.write(chunk)
+        return True
     else:
-        st.error(f"Failed to download the model. Status code: {response.status_code}")
-        return None
+        return False
 
-# URL of the .pkl file (change to your actual link)
-model_url = "YOUR_MODEL_URL_HERE"
+# File ID from Google Drive URL
+file_id = "1WOL9TQLPZ-RRon8vc1sDtY7IKuYH0ydt"  # Extracted from the original URL
+model_file = "rf_model_cpu.pkl"
 
-# Load the trained model from the downloaded URL
-model_file = download_model(model_url)
-if model_file:
-    model = pickle.load(model_file)
+# Check if the file already exists, if not, download it
+if not os.path.exists(model_file):
+    success = download_file_from_google_drive(file_id, model_file)
+    if success:
+        st.success("Model file downloaded successfully!")
+    else:
+        st.error("Failed to download model file.")
 
-# Sensor fields
-fields = [
-    "Cycle", "OpSet1", "OpSet2", "OpSet3", 
-    "Primary Temperature Reading", "Secondary Temperature Reading", "Tertiary Temperature Reading", 
-    "Quaternary Temperature Reading", "Primary Pressure Reading", "Secondary Pressure Reading", 
-    "Tertiary Pressure Reading", "Quaternary Pressure Reading", "Primary Speed Reading", 
-    "Secondary Speed Reading", "Tertiary Speed Reading", "Quaternary Speed Reading", 
-    "Primary Vibration Reading", "Secondary Vibration Reading", "Primary Flow Reading", 
-    "Secondary Flow Reading", "Tertiary Flow Reading", "Pressure Ratio", 
-    "Efficiency Indicator", "Power Setting", "Fuel Flow Rate"
-]
+# Load the trained model after downloading it
+try:
+    with open(model_file, 'rb') as file:
+        model = pickle.load(file)
+except Exception as e:
+    st.error(f"Failed to load model: {e}")
+    st.stop()
+
+# Real sensor names and corresponding model feature names
+sensor_names = {
+    "Cycle": "Cycle", 
+    "OpSet1": "OpSet1", "OpSet2": "OpSet2", "OpSet3": "OpSet3",
+    "Primary Temperature Reading": "SensorMeasure1", 
+    "Secondary Temperature Reading": "SensorMeasure2", 
+    "Tertiary Temperature Reading": "SensorMeasure3", 
+    "Quaternary Temperature Reading": "SensorMeasure4", 
+    "Primary Pressure Reading": "SensorMeasure5", 
+    "Secondary Pressure Reading": "SensorMeasure6", 
+    "Tertiary Pressure Reading": "SensorMeasure7", 
+    "Quaternary Pressure Reading": "SensorMeasure8", 
+    "Primary Speed Reading": "SensorMeasure9", 
+    "Secondary Speed Reading": "SensorMeasure10", 
+    "Tertiary Speed Reading": "SensorMeasure11", 
+    "Quaternary Speed Reading": "SensorMeasure12", 
+    "Primary Vibration Reading": "SensorMeasure13", 
+    "Secondary Vibration Reading": "SensorMeasure14", 
+    "Primary Flow Reading": "SensorMeasure15", 
+    "Secondary Flow Reading": "SensorMeasure16", 
+    "Tertiary Flow Reading": "SensorMeasure17", 
+    "Pressure Ratio": "SensorMeasure18", 
+    "Efficiency Indicator": "SensorMeasure19", 
+    "Power Setting": "SensorMeasure20", 
+    "Fuel Flow Rate": "SensorMeasure21"
+}
 
 # Predefined values for GOOD, MODERATE, VERY BAD
 predefined_values = {
-    "GOOD": [124,42.0046,0.84,100.0,445.0,549.89,1348.37,1110.2,3.91,5.69,137.2,2211.88,8310.53,1.01,41.58,129.39,2388.01,8078.3,9.3771,0.02,329,2212,100.0,10.64,6.3304],
-    "MODERATE": [160,0.0009,0.0,100.0,518.67,642.09,1581.5,1393.82,14.62,21.56,552.93,2387.95,9052.64,1.3,47.17,521.69,2387.95,8137.17,8.3756,0.03,391,2388,100.0,38.97,23.3432],
-    "VERY BAD": [252,0.002,0.0017,100.0,518.67,642.85,1595.78,1410.08,14.62,21.57,562.77,2388.24,9097.79,1.31,47.74,529.38,2388.22,8169.2,8.279,0.03,393,2388,100.0,39.22,23.6432]
+    "GOOD": [64,20.0004,0.7007,100.0,491.19,606.79,1477.26,1234.25,9.35,13.61,332.51,2323.71,8709.48,1.07,43.86,313.57,2387.77,8050.58,9.1851,0.02,364,2324,100.0,24.6,14.6684],
+    "MODERATE": [213,10.0018,0.25,100.0,489.05,604.4,1492.63,1306.34,10.52,15.47,397.07,2318.98,8778.54,1.26,45.37,373.56,2388.16,8141.38,8.571,0.03,369,2319,100.0,28.74,17.2585],
+    "VERY BAD": [263,10.0077,0.2501,100.0,489.05,604.86,1507.7,1318.06,10.52,15.47,401.91,2319.43,8816.35,1.27,45.7,379.16,2388.61,8170.26,8.4897,0.03,372,2319,100.0,28.85,17.3519]
 }
 
 # Streamlit UI
@@ -47,8 +83,8 @@ st.title("Engine Health Predictor")
 # Autofill buttons
 for label in predefined_values:
     if st.button(f"Autofill for {label}"):
-        for i, field in enumerate(fields):
-            st.session_state[field] = predefined_values[label][i]
+        for real_name, model_name in sensor_names.items():
+            st.session_state[model_name] = predefined_values[label][list(sensor_names.keys()).index(real_name)]
 
 # Text input for pasting comma-separated values
 user_input = st.text_area("Paste comma-separated values", "")
@@ -58,20 +94,20 @@ if st.button("Apply"):
     if user_input:
         input_values = list(map(float, user_input.split(',')))
         
-        if len(input_values) == len(fields):
-            for i, field in enumerate(fields):
-                st.session_state[field] = input_values[i]
+        if len(input_values) == len(sensor_names):
+            for real_name, model_name in sensor_names.items():
+                st.session_state[model_name] = input_values[list(sensor_names.keys()).index(real_name)]
         else:
             st.error("Invalid input. Ensure the number of values matches the required fields.")
 
-# User input fields
+# User input fields with real sensor names displayed
 input_data = []
-for field in fields:
-    value = st.number_input(field, key=field, value=st.session_state.get(field, 0.0))
+for real_name, model_name in sensor_names.items():
+    value = st.number_input(real_name, key=model_name, value=st.session_state.get(model_name, 0.0))
     input_data.append(value)
 
 # Convert input_data to a pandas DataFrame with dtype float32
-input_df = pd.DataFrame([input_data], columns=fields)
+input_df = pd.DataFrame([input_data], columns=list(sensor_names.values()))
 input_df = input_df.astype('float32')
 
 # Submit button
