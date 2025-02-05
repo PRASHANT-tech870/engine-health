@@ -2,49 +2,26 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import pickle
-import requests
 import os
+import gdown
 from sklearn.ensemble import RandomForestClassifier
 
-# Function to download the file from Google Drive
-import streamlit as st
-import os
-import requests
-
-# Function to download the file from Google Drive
+# Function to download the file from Google Drive using gdown
 def download_file_from_google_drive(file_id, destination):
-    # Construct the direct download URL
-    url = f"https://drive.google.com/uc?id={file_id}&export=download"
-    
-    session = requests.Session()
-    response = session.get(url, stream=True)
-    
-    # Check if the request is successful (status code 200)
-    if response.status_code == 200:
-        # Check if the response contains HTML (in case of error page)
-        if b"<html>" in response.content:
-            st.error("Failed to download model file. The file may not be accessible.")
-            return False
-        else:
-            with open(destination, 'wb') as f:
-                for chunk in response.iter_content(1024):
-                    f.write(chunk)
-            return True
-    else:
-        st.error(f"Failed to download model file, status code: {response.status_code}")
-        return False
+    url = f"https://drive.google.com/uc?id={file_id}"
+    gdown.download(url, destination, quiet=False)
 
 # File ID from Google Drive URL
-file_id = "1Kho6t6IlKv6V8iy7-ncJCBWpZWsfR8Mu"  # Correct file ID
+file_id = "1WOL9TQLPZ-RRon8vc1sDtY7IKuYH0ydt"  # Extracted from the original URL
 model_file = "rf_model_cpu.pkl"
 
 # Check if the file already exists, if not, download it
 if not os.path.exists(model_file):
-    success = download_file_from_google_drive(file_id, model_file)
-    if success:
+    try:
+        download_file_from_google_drive(file_id, model_file)
         st.success("Model file downloaded successfully!")
-    else:
-        st.error("Failed to download model file.")
+    except Exception as e:
+        st.error(f"Failed to download model file: {e}")
 
 # Load the trained model after downloading it
 try:
@@ -53,7 +30,6 @@ try:
 except Exception as e:
     st.error(f"Failed to load model: {e}")
     st.stop()
-
 
 # Real sensor names and corresponding model feature names
 sensor_names = {
