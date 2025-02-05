@@ -2,10 +2,25 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import pickle
+import requests
+from io import BytesIO
 
-# Load the trained model
-with open('rf_model_gpu.pkl', 'rb') as file:
-    model = pickle.load(file)
+# Function to download the model file from a URL
+def download_model(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        return BytesIO(response.content)  # Return content as a BytesIO object
+    else:
+        st.error(f"Failed to download the model. Status code: {response.status_code}")
+        return None
+
+# URL of the .pkl file (change to your actual link)
+model_url = "YOUR_MODEL_URL_HERE"
+
+# Load the trained model from the downloaded URL
+model_file = download_model(model_url)
+if model_file:
+    model = pickle.load(model_file)
 
 # Sensor fields
 fields = [
